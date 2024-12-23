@@ -11,37 +11,72 @@ const ChatbotPreview = ({ nodes, edges, onExitPreview }) => {
     const startNode = nodes.find((node) =>
       edges.every((edge) => edge.target !== node.id),
     );
+
     if (startNode) {
       setCurrentNode(startNode);
-      setConversation([{ sender: "bot", message: startNode.data.label }]);
+      addMessageToConversation("bot", startNode.data.text || "Welcome!");
     } else {
-      alert("No start node found!");
+      alert("No starting node found!");
     }
   };
 
-  // Navigate to the next node based on conditions
-  const goToNextNode = (condition) => {
+  // Add a message to the conversation
+  const addMessageToConversation = (sender, message, component = null) => {
+    setConversation((prev) => [...prev, { sender, message, component }]);
+  };
+
+  // Navigate to the next node
+  const goToNextNode = (postbackData) => {
     const outgoingEdge = edges.find(
       (edge) =>
-        edge.source === currentNode.id &&
-        (!edge.label || edge.label === condition),
+        edge.source === currentNode.id && edge.sourceHandle === postbackData,
     );
 
     if (outgoingEdge) {
       const nextNode = nodes.find((node) => node.id === outgoingEdge.target);
       if (nextNode) {
         setCurrentNode(nextNode);
-        setConversation((prev) => [
-          ...prev,
-          { sender: "bot", message: nextNode.data.label },
-        ]);
+        addMessageToConversation("bot", nextNode.data.text || "Next message.");
       }
     } else {
-      setConversation((prev) => [
-        ...prev,
-        { sender: "bot", message: "No further steps available." },
-      ]);
+      addMessageToConversation("bot", "No further steps available.");
     }
+  };
+
+  // Render the current node's components (buttons, images, etc.)
+  const renderComponents = () => {
+    if (!currentNode || !currentNode.data.components) return null;
+
+    return currentNode.data.components.map((component, index) => {
+      if (component.type === "button") {
+        return (
+          <button
+            key={index}
+            className="flex-1 rounded bg-blue-500 px-4 py-2 text-white"
+            onClick={() => goToNextNode(component.properties.postbackData)}
+          >
+            {component.properties.label || "Button"}
+          </button>
+        );
+      }
+
+      if (component.type === "image") {
+        return (
+          <img
+            key={index}
+            src={component.properties.src || ""}
+            alt={component.properties.alt || "Image"}
+            className="my-2 rounded shadow"
+            style={{
+              width: component.properties.width || "100%",
+              maxWidth: "300px",
+            }}
+          />
+        );
+      }
+
+      return null; // Other component types can be added here
+    });
   };
 
   return (
@@ -61,32 +96,13 @@ const ChatbotPreview = ({ nodes, edges, onExitPreview }) => {
               }`}
             >
               {msg.message}
+              {msg.component}
             </div>
           </div>
         ))}
       </div>
       {currentNode ? (
-        <div className="flex gap-2">
-          {currentNode.data.components &&
-          currentNode.data.components.length > 0 ? (
-            currentNode.data.components.map((component, index) => (
-              <button
-                key={index}
-                className="flex-1 rounded bg-blue-500 px-4 py-2 text-white"
-                onClick={() => goToNextNode(component.properties.label)}
-              >
-                {component.properties.label || "Next"}
-              </button>
-            ))
-          ) : (
-            <button
-              className="flex-1 rounded bg-blue-500 px-4 py-2 text-white"
-              onClick={() => goToNextNode(null)}
-            >
-              Continue
-            </button>
-          )}
-        </div>
+        <div className="flex flex-wrap gap-2">{renderComponents()}</div>
       ) : (
         <button
           className="w-full rounded bg-green-500 px-4 py-2 text-white"

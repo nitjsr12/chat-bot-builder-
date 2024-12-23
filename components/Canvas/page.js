@@ -30,6 +30,7 @@ const LOCAL_STORAGE_KEY = "react-flow-data";
 
 const EditableComponent = ({
   component,
+  index,
   onUpdate,
   onDelete,
   onSendMessage,
@@ -39,10 +40,15 @@ const EditableComponent = ({
 
   const handlePropertyChange = (e) => {
     const { name, value } = e.target;
-    onUpdate({
+
+    // Directly update the component to avoid lag
+    const updatedComponent = {
       ...component,
       properties: { ...component.properties, [name]: value },
-    });
+    };
+
+    // Update parent state with new component data
+    onUpdate(updatedComponent);
   };
 
   const handleInputChange = (e) => {
@@ -88,13 +94,19 @@ const EditableComponent = ({
           ...component,
           properties: {
             ...component.properties,
-            src: reader.result, // Base64 encoded image data
+            src: reader.result,
           },
         });
       };
       reader.readAsDataURL(file);
     }
   };
+  const handleTextChange = (e) => {
+    const value = e.target.value;
+    setInputValue(value);
+    if (onChange) onChange(value);
+  };
+
   const handleResize = (e) => {
     const newWidth = e.target.value;
     onUpdate({
@@ -107,71 +119,34 @@ const EditableComponent = ({
   };
   return (
     <div className="relative rounded border bg-gray-100 p-4 shadow-inner">
-      {component.type === "textarea" ? (
-        <div>
+      {component.type === "textarea" && (
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-lg">
+          <label className="mb-2 block text-lg font-semibold text-gray-700">
+            Message
+          </label>
+
           <textarea
             value={inputValue}
             onChange={handleInputChange}
-            placeholder={component.properties.placeholder}
+            placeholder={
+              component.properties.placeholder || "Type your message..."
+            }
             maxLength={component.properties.maxLength}
-            style={{
-              ...component.properties.style,
-              width: "100%",
-            }}
-            className="rounded border p-2"
+            rows={4}
+            className="w-full resize-none rounded-lg border border-gray-300 p-3 text-gray-700 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300"
           />
-          <button
-            onClick={handleSend}
-            className="mt-2 w-full rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
-          >
-            Send
-          </button>
-          <div className="mt-2">
-            <label className="block text-sm font-semibold">Placeholder:</label>
-            <input
-              type="text"
-              name="placeholder"
-              value={component.properties.placeholder}
-              onChange={handlePropertyChange}
-              className="w-full rounded border p-2"
-            />
-            <label className="block text-sm font-semibold">Max Length:</label>
-            <input
-              type="number"
-              name="maxLength"
-              value={component.properties.maxLength || ""}
-              onChange={handlePropertyChange}
-              className="w-full rounded border p-2"
-            />
+
+          <div className="mt-4 flex justify-end gap-4">
+            <button
+              onClick={handleSend}
+              className="rounded-lg bg-blue-500 px-6 py-2 font-medium text-white shadow-md transition hover:bg-blue-600 focus:ring-2 focus:ring-blue-300"
+            >
+              Send
+            </button>
           </div>
         </div>
-      ) : component.type === "text-input" ? (
-        <div>
-          <input
-            type="text"
-            value={inputValue}
-            onChange={handleInputChange}
-            placeholder={component.properties.placeholder}
-            className="w-full rounded border p-2"
-          />
-          <button
-            onClick={handleSend}
-            className="mt-2 w-full rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
-          >
-            Send
-          </button>
-          <div className="mt-2">
-            <label className="block text-sm font-semibold">Placeholder:</label>
-            <input
-              type="text"
-              name="placeholder"
-              value={component.properties.placeholder}
-              onChange={handlePropertyChange}
-              className="w-full rounded border p-2"
-            />
-          </div>
-        </div>
-      ) : null}
+      )}
+
       <button
         onClick={onDelete}
         className="absolute right-2 top-2 text-red-500 hover:text-red-700"
@@ -189,7 +164,7 @@ const EditableComponent = ({
           <Handle
             type="source"
             position="right"
-            id={`quick-reply-${component.id}`}
+            id={`quick-reply-${index}`}
             style={{
               background: "#007bff",
               border: "2px solid #0056b3",
@@ -197,13 +172,12 @@ const EditableComponent = ({
               width: 12,
               height: 12,
               right: -8,
-              top: "50%",
+              top: `${index * 40}px`,
               transform: "translateY(-50%)",
             }}
           />
         )}
       </div>
-
       {/* Editable Properties */}
       <div className="mt-2">
         <label className="block text-sm font-semibold">Button Label:</label>
@@ -227,7 +201,6 @@ const EditableComponent = ({
           <option value="quick-reply">Quick Reply</option>
           <option value="url">URL</option>
           <option value="dialer">Dialer</option>
-          <option value="call-to-action">Call to Action</option>
         </select>
 
         {/* Action-Specific Options */}
@@ -362,7 +335,6 @@ const EditableComponent = ({
           </div>
         </div>
       )}
-
       {/* Quick Reply Component */}
       {component.type === "quick-reply" && (
         <div>
@@ -413,11 +385,10 @@ const EditableComponent = ({
           </button>
         </div>
       )}
-
       {/* Delete Button */}
       <button
         onClick={onDelete}
-        className="absolute right-2 top-2 text-red-500 hover:text-red-700"
+        className="absolute right-2 top-3 text-red-500 hover:text-red-700"
       >
         <FaTrash />
       </button>
@@ -498,12 +469,16 @@ const TextUpdaterNode = ({
         data.components.map((component, index) => (
           <EditableComponent
             key={index}
+            index={index} // Pass the index explicitly
             component={component}
             onUpdate={(updatedComponent) =>
               onUpdateComponent(index, updatedComponent)
             }
             onDelete={() => onDeleteComponent(index)}
             onSendMessage={(msg) => onSendMessage(msg)}
+            navigateToNode={(nodeId) =>
+              console.log(`Navigating to Node ID: ${nodeId}`)
+            }
           />
         ))
       )}
@@ -575,7 +550,6 @@ const NodeComponent = ({
         <option value="text-input">Text Input</option>
         <option value="button">Button</option>
         <option value="image">Image</option>
-        <option value="quick-reply">Quick Reply</option>
       </select>
       <button
         onClick={onDelete}
@@ -715,9 +689,9 @@ function Flow() {
       position: { x: Math.random() * 400, y: Math.random() * 400 },
       data: {
         header: `Node ${nodes.length + 1}`,
-        customKey: `node_${nodes.length + 1}`, // Automatically assign customKey
+        customKey: `node_${nodes.length + 1}`,
         components: [],
-        messages: [" "],
+        messages: [], // Initialize as empty array
       },
     };
     setNodes((nds) => nds.concat(newNode));
@@ -836,28 +810,28 @@ function Flow() {
       <div className="w-44 bg-white p-4 shadow-md">
         <button
           onClick={addNode}
-          className="mb-4 w-full rounded bg-blue-500 px-4 py-2 text-white"
+          className="mb-4 w-full rounded bg-[#9d9d9d] px-4 py-2 text-white hover:bg-[#008000]"
         >
           <FaPlus className="mr-2 inline" />
           Add Node
         </button>
         <button
           onClick={saveFlow}
-          className="mb-4 w-full rounded bg-green-500 px-4 py-2 text-white"
+          className="mb-4 w-full rounded bg-[#9d9d9d] px-4 py-2 text-white hover:bg-[#008000]"
         >
           <FaSave className="mr-2 inline" />
           Save Flow
         </button>
         <button
           onClick={loadFlow}
-          className="mb-4 w-full rounded bg-yellow-500 px-4 py-2 text-white"
+          className="mb-4 w-full rounded bg-[#9d9d9d]  px-4 py-2 text-white hover:bg-[#008000]"
         >
           <FaUpload className="mr-2 inline" />
           Load Flow
         </button>
         <button
           onClick={exportFlow}
-          className="rounded bg-green-500 px-4 py-2 text-white hover:bg-green-600"
+          className="mb-4 w-full rounded bg-[#9d9d9d] px-4 py-2 text-white hover:bg-[#008000]"
         >
           Export Flow
         </button>
@@ -874,7 +848,7 @@ function Flow() {
           </select>
           <button
             onClick={loadTemplate}
-            className="w-full rounded bg-purple-500 px-4 py-2 text-white"
+            className="mb-4 w-full rounded bg-[#9d9d9d] px-4 py-2 text-white hover:bg-[#008000]"
           >
             Load Template
           </button>
@@ -893,11 +867,13 @@ function Flow() {
           onConnect={(connection) => {
             const sourceNode = nodes.find((n) => n.id === connection.source);
             const targetNode = nodes.find((n) => n.id === connection.target);
+
             if (sourceNode && targetNode) {
               const quickReplyButton = sourceNode.data.components.find(
-                (comp) =>
+                (comp, index) =>
                   comp.type === "button" &&
-                  comp.properties.actionType === "quick-reply",
+                  comp.properties.actionType === "quick-reply" &&
+                  `quick-reply-${index}` === connection.sourceHandle,
               );
 
               if (quickReplyButton) {
@@ -905,11 +881,14 @@ function Flow() {
                 targetNode.data.customKey =
                   quickReplyButton.properties.postbackData;
                 console.log(
-                  `Assigned postbackData to target node: ${targetNode.data.customKey}`,
+                  `Assigned postbackData "${quickReplyButton.properties.postbackData}" to target node: ${targetNode.data.customKey}`,
+                );
+              } else {
+                console.warn(
+                  `No matching Quick Reply Button found for Handle: ${connection.sourceHandle}`,
                 );
               }
             }
-
             setEdges((eds) => addEdge(connection, eds));
           }}
         >
@@ -922,7 +901,7 @@ function Flow() {
       {/* Preview Button */}
       <button
         onClick={() => setIsPreviewVisible(!isPreviewVisible)}
-        className="fixed bottom-4 right-4 rounded-full bg-blue-500 px-4 py-2 text-white shadow-lg"
+        className="fixed bottom-4 right-4 rounded-full bg-[#9d9d9d] px-4 py-2 text-white shadow-lg"
       >
         {isPreviewVisible ? "Close Preview" : "Preview"}
       </button>
