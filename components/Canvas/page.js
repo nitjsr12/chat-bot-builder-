@@ -15,6 +15,26 @@ import {
 import "@xyflow/react/dist/style.css";
 import TEMPLATES from "./Templates";
 import ChatbotPreview from "./ChatbotPreview";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils"; // Utility for conditional classNames (optional)
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
 import {
   FaPlus,
@@ -24,6 +44,7 @@ import {
   FaTextHeight,
   FaImage,
   FaReply,
+  FaEllipsisV,
 } from "react-icons/fa";
 
 const LOCAL_STORAGE_KEY = "react-flow-data";
@@ -37,6 +58,21 @@ const EditableComponent = ({
   navigateToNode,
 }) => {
   const [inputValue, setInputValue] = useState("");
+  const [localLabel, setLocalLabel] = useState(
+    component.properties.label || "",
+  );
+
+  const handleLocalChange = (e) => {
+    setLocalLabel(e.target.value);
+  };
+
+  // Update parent state on blur (smooth)
+  const handleBlur = () => {
+    onUpdate({
+      ...component,
+      properties: { ...component.properties, label: localLabel },
+    });
+  };
 
   const handlePropertyChange = (e) => {
     const { name, value } = e.target;
@@ -120,29 +156,33 @@ const EditableComponent = ({
   return (
     <div className="relative rounded border bg-gray-100 p-4 shadow-inner">
       {component.type === "textarea" && (
-        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-lg">
-          <label className="mb-2 block text-lg font-semibold text-gray-700">
+        <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-lg">
+          <label className="mb-3 block text-lg font-medium text-gray-900">
             Message
           </label>
 
-          <textarea
+          <Textarea
             value={inputValue}
             onChange={handleInputChange}
             placeholder={
-              component.properties.placeholder || "Type your message..."
+              component.properties.placeholder || "Type your message here..."
             }
             maxLength={component.properties.maxLength}
-            rows={4}
-            className="w-full resize-none rounded-lg border border-gray-300 p-3 text-gray-700 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300"
+            rows={5}
+            className={cn(
+              "w-full resize-none rounded-lg border-gray-300 bg-white p-3 text-gray-700 shadow-sm",
+              "focus:border-primary focus:ring-2 focus:ring-primary/40",
+            )}
           />
 
-          <div className="mt-4 flex justify-end gap-4">
-            <button
+          <div className="mt-4 flex justify-end">
+            <Button
               onClick={handleSend}
-              className="rounded-lg bg-blue-500 px-6 py-2 font-medium text-white shadow-md transition hover:bg-blue-600 focus:ring-2 focus:ring-blue-300"
+              variant="default"
+              className="px-6 py-2 font-medium"
             >
               Send
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -155,9 +195,9 @@ const EditableComponent = ({
       </button>
       {/* Button Preview */}
       <div className="relative">
-        <button className="w-full rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600">
+        <Button className="w-full px-4 py-2 font-medium" variant="default">
           {component.properties.label || "Button"}
-        </button>
+        </Button>
 
         {/* Quick Reply Connection Point */}
         {component.properties.actionType === "quick-reply" && (
@@ -178,31 +218,45 @@ const EditableComponent = ({
           />
         )}
       </div>
+
       {/* Editable Properties */}
-      <div className="mt-2">
-        <label className="block text-sm font-semibold">Button Label:</label>
-        <input
-          type="text"
-          name="label"
-          value={component.properties.label || ""}
-          onChange={handlePropertyChange}
-          placeholder="Enter Button Text"
-          className="w-full rounded border p-2"
-        />
+      <div className="mt-4 space-y-4">
+        <div>
+          <Label htmlFor="label" className="text-sm font-semibold">
+            Button Label
+          </Label>
+          <Input
+            type="text"
+            id="label"
+            value={localLabel}
+            onChange={handleLocalChange}
+            onBlur={handleBlur}
+            placeholder="Enter Button Text"
+          />
+        </div>
 
-        <label className="mt-2 block text-sm font-semibold">Action Type:</label>
-        <select
-          name="actionType"
-          value={component.properties.actionType || ""}
-          onChange={handlePropertyChange}
-          className="w-full rounded border p-2"
-        >
-          <option value="">Select Action</option>
-          <option value="quick-reply">Quick Reply</option>
-          <option value="url">URL</option>
-          <option value="dialer">Dialer</option>
-        </select>
-
+        <div>
+          <Label htmlFor="actionType" className="text-sm font-semibold">
+            Action Type
+          </Label>
+          <Select
+            value={component.properties.actionType || ""}
+            onValueChange={(value) =>
+              handlePropertyChange({
+                target: { name: "actionType", value },
+              })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select Action" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="quick-reply">Quick Reply</SelectItem>
+              <SelectItem value="url">URL</SelectItem>
+              <SelectItem value="dialer">Dialer</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         {/* Action-Specific Options */}
         {component.properties.actionType === "url" && (
           <div>
@@ -507,11 +561,12 @@ const NodeComponent = ({
   onSendMessage,
   selected,
 }) => {
-  const handleDropdownChange = (e) => {
+  const handleComponentSelect = (componentType) => {
     const selectedComponent = {
-      type: e.target.value,
+      type: componentType,
       properties: { placeholder: "Enter text here" },
     };
+
     if (selectedComponent.type === "text-input") {
       selectedComponent.properties.placeholder = "Type something...";
     } else if (selectedComponent.type === "button") {
@@ -529,8 +584,8 @@ const NodeComponent = ({
 
   return (
     <div
-      className={`relative rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-lg dark:bg-gray-700 ${
-        selected ? "ring-2 ring-blue-500" : ""
+      className={`relative rounded-lg border bg-white  shadow-md transition-all ${
+        selected ? "ring-1 ring-blue-500" : ""
       }`}
     >
       <TextUpdaterNode
@@ -541,23 +596,45 @@ const NodeComponent = ({
         onDeleteComponent={onDeleteComponent}
         onSendMessage={onSendMessage}
       />
-      <select
-        onChange={handleDropdownChange}
-        className="mt-2 w-full rounded border bg-white p-2 text-gray-700 dark:bg-gray-600 dark:text-gray-200"
-      >
-        <option value="">Add Component</option>
-        <option value="textarea">Textarea</option>
-        <option value="text-input">Text Input</option>
-        <option value="button">Button</option>
-        <option value="image">Image</option>
-      </select>
-      <button
-        onClick={onDelete}
-        className="absolute right-2 top-2 flex size-6 items-center justify-center rounded-full bg-red-500 text-white transition hover:bg-red-600"
-        title="Delete Node"
-      >
-        <FaTrash size={10} />
-      </button>
+
+      {/* Dropdown Menu for Adding Components */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-2 top-1 text-gray-600 hover:bg-gray-100"
+          >
+            <FaEllipsisV />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={() => handleComponentSelect("textarea")}>
+            ➕ Add Textarea
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleComponentSelect("text-input")}>
+            ➕ Add Text Input
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleComponentSelect("button")}>
+            ➕ Add Button
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleComponentSelect("image")}>
+            ➕ Add Image
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => handleComponentSelect("quick-reply")}
+          >
+            ➕ Add Quick Reply
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            onClick={onDelete}
+            className="text-red-600 hover:bg-red-100"
+          >
+            <FaTrash className="mr-2" /> Delete Node
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 };
